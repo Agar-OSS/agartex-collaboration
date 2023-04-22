@@ -22,5 +22,5 @@ class SimpleChat(WebSocket):
 
 clients = []
 
-server = WebSocketServer('', 6789, SimpleChat)
+server = WebSocketServer('', 3400, SimpleChat)
 server.serve_forever()
