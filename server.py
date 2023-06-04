@@ -1,11 +1,12 @@
 from simple_websocket_server import WebSocketServer, WebSocket
 import json
 import random
+import logging as log
 
 class SimpleChat(WebSocket):
     def handle(self):
         clientId = clients[self]
-        print(f'[MESSAGE][{clientId}] {self.data}')
+        log.info(f'[MESSAGE][{clientId}] {self.data}')
         for client in clients:
             if client != self:
                 client.send_message(self.data)
@@ -13,7 +14,7 @@ class SimpleChat(WebSocket):
     def connected(self):
         clientId = str(random.randint(0, 10**5))
 
-        print(f'[CONNECTED] {clientId}')
+        log.info(f'[CONNECTED] {clientId}')
 
         newClient_message = {}
         newClient_message['clientId'] = clientId
@@ -49,16 +50,18 @@ class SimpleChat(WebSocket):
         clientsConnectedIds.remove(clientId)
         del cursorsPositions[clientId]
 
-        print(f'[CLOSED] {clientId}')
+        log.info(f'[CLOSED] {clientId}')
+
+log.getLogger().setLevel(log.INFO)
 
 document = []
 clientsConnectedIds = []
 clients = {}
 cursorsPositions = {}
 
-server = WebSocketServer('', 3400, SimpleChat)
+server = WebSocketServer('0.0.0.0', 3400, SimpleChat)
 
-print('Listening on port 3400')
+log.info('Listening on port 3400')
 
 server.serve_forever()
 
