@@ -5,13 +5,42 @@ import logging as log
 
 class SimpleChat(WebSocket):
     def handle(self):
+        global document
+        global clientsConnectedIds
+        global clients
+        global cursorsPositions
+
         clientId = clients[self]
-        log.info(f'[MESSAGE][{clientId}] {self.data}')
+        message = json.loads(self.data) 
+
+        log.info(f'[MESSAGE][{clientId}] {message}')
+    
+        # document delta
+        if message['type'] == 3:
+            if message['isBackspace']:
+                position = message['position']
+                document = [char for char in document if char['id'] != position]
+            else:
+                position = message['position']
+                char = message['char']
+
+                if position == None:
+                    document.insert(0, char)
+                else:
+                    for i in range(len(document)):
+                        if document[i]['id'] == position:
+                            document.insert(i + 1, char)
+
         for client in clients:
             if client != self:
                 client.send_message(self.data)
 
     def connected(self):
+        global document
+        global clientsConnectedIds
+        global clients
+        global cursorsPositions
+
         clientId = str(random.randint(0, 10**5))
 
         log.info(f'[CONNECTED] {clientId}')
@@ -36,7 +65,12 @@ class SimpleChat(WebSocket):
 
         clients[self] = clientId
 
-    def handle_close(self): 
+    def handle_close(self):
+        global document
+        global clientsConnectedIds
+        global clients
+        global cursorsPositions
+
         clientId = clients[self]
         del clients[self]
 
