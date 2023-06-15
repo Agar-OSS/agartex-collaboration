@@ -23,15 +23,20 @@ class CharObj(TypedDict):
     value: str
 
 def from_raw_document(raw_document: str) -> list[CharObj]:
-    return [
-        {
-            'id': generate_char_id('00'),
+    prevId = None 
+    document = []
+
+    for char in raw_document:
+        id = generate_char_id('00')
+        document.append({
+            'id': id,
             'deleted': False,
+            'prevId': prevId,
             'value': char
-        }
-        for char 
-        in raw_document
-    ]
+        })
+        prevId = id
+
+    return document
 
 def to_raw_document(document: list[CharObj]) -> str:
     return "".join([ 
@@ -146,19 +151,19 @@ class Session:
         log.info(f'[{self.projectId}] {clientId} disconnected.')
     
     def handle_document_delta(self, message):
-        if message['isBackspace']:
-            position = message['position']
-            self.document = [char for char in self.document if char['id'] != position]
-        else:
-            position = message['position']
-            char = message['char']
-            
-            if position == None:
-                self.document.insert(0, char)
-            else:
-                idx, = (i for i, val in enumerate(self.document) if val['id'] == position)
-                self.document.insert(idx+1, char)
-    
+        if 'insert' in message:
+            insert = message['insert']
+            if len(insert) > 0:
+                position = insert[0]['prevId']
+                if position == None:
+                    self.document[0:0] = insert
+                else:
+                    idx, = (i for i, val in enumerate(self.document) if val['id'] == position)
+                    self.document[idx + 1: idx + 1] = insert
+        elif 'delete' in message:
+            delete = message['delete']
+            self.document = [char for char in self.document if char['id'] not in delete]
+
     def handle_message(self, sender_client, message):
         sender_clientId = self.clientToClientId[sender_client]
 
