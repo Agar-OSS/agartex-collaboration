@@ -1,6 +1,6 @@
 FROM python:3.11.3
 
-RUN pip3 install simple-websocket-server
+RUN pip3 install simple-websocket-server requests
 
 WORKDIR /usr/src
 COPY . .
