@@ -180,9 +180,10 @@ class SimpleChat(WebSocket):
 
         if message['type'] == MessageType.CLIENT_HANDSHAKE.value:
             projectId = message['projectId']
+            userId = message['userId']
                 
             if projectId not in sessions:
-                sessions[projectId] = Session(projectId)
+                sessions[projectId] = Session(userId, projectId)
             
             clientToProjectId[self] = projectId
             sessions[projectId].add_client(self)
