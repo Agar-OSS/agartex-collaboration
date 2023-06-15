@@ -9,4 +9,4 @@ RUN adduser user
 USER user
 
 EXPOSE 3400
-ENTRYPOINT ["source", "bin" "python3", "server.py"]
+ENTRYPOINT ["python3", "server.py"]
