@@ -1,4 +1,8 @@
+from typing import TypedDict
 from simple_websocket_server import WebSocketServer, WebSocket
+from os import getenv
+import requests
+from requests import HTTPError
 import json
 import random
 import logging as log
@@ -7,8 +11,66 @@ from enum import Enum
 def generate_client_id():
     return str(random.randint(0, 10**5))
 
+def generate_char_id(client_id: str):
+    return f'{client_id}.{random.randint(0, 2**32-1)}'
+
 def send_obj_message(client, message):
-    client.send_message(json.dumps(message, separators=(',', ':')))
+    client.send_message(json.dumps(message, separators=(',', ':')))    
+
+class CharObj(TypedDict):
+    id: str
+    deleted: bool
+    value: str
+
+def from_raw_document(raw_document: str) -> list[CharObj]:
+    return [
+        {
+            'id': generate_char_id('00'),
+            'deleted': False,
+            'value': char
+        }
+        for char 
+        in raw_document
+    ]
+
+def to_raw_document(document: list[CharObj]) -> str:
+    return [ 
+        char['value'] 
+        for char 
+        in document 
+        if not char['deleted']
+    ]
+
+class FileManager:
+    def __init__(self, resource_manager_url: str):
+        self.url = resource_manager_url
+        pass
+
+    def upload_project(self, user_id: int, project_id: int, content: str):
+        res = requests.put(
+            self.url + f'/projects/{project_id}',
+            data=content, 
+            headers={'X-User-Id': str(user_id)}
+        )
+
+        try:
+            res.raise_for_status()
+        except HTTPError as err:
+            log.error(f'[project {project_id}][user {user_id}] Failed to upload project content!! {err.strerror}')
+
+    def download_project(self, user_id: int, project_id: int) -> str:
+        res = requests.get(
+            self.url + f'/projects/{project_id}',
+            headers={'X-User-Id': str(user_id)}
+        )
+
+        try:
+            res.raise_for_status()
+        except HTTPError as err:
+            log.error(f'[project {project_id}][user {user_id}] Failed to download project content!! {err.strerror}')
+            return ''
+        else:
+            return res.text
 
 class MessageType(Enum):
     CONNECTED = 0
@@ -19,18 +81,26 @@ class MessageType(Enum):
     CLIENT_HANDSHAKE = 999
 
 class Session:
-    def __init__(self, projectId):
-        self.projectId = projectId
-        self.clientToClientId = {}
-        self.cursorsPositions = {}
+    def __init__(self, user_id: str, project_id: str):
+        global fileManager
+        log.info(f'[{project_id}] Initializing new session.')
 
-        # TODO: Here we need to pull initial document state from RM. 
-        self.document = []
-        
-        log.info(f'[{projectId}] New session initialized.')
+        self.projectId = project_id
+        self.clientToClientId: dict[SimpleChat, str] = {}
+        self.cursorsPositions = {}
+        self.userId = user_id
+
+        raw_document = fileManager.download_project(user_id, project_id)
+        self.document = from_raw_document(raw_document)
+
+        log.info(f'[{project_id}] New session initialized.')
     
     def __del__(self):
+        global fileManager
         log.info(f'[{self.projectId}] Clossing session.')
+        fileManager.upload_project(self.userId, self.projectId, to_raw_document(self.document))
+        log.info(f'[{self.projectId}] Session closed.')
+        
     
     def get_clients_count(self):
         return len(self.clientToClientId)
@@ -63,7 +133,7 @@ class Session:
 
         del self.clientToClientId[client]
 
-        if  clientId in self.cursorsPositions:
+        if clientId in self.cursorsPositions:
             del self.cursorsPositions[clientId]
 
         disconnected_message = {}
@@ -138,6 +208,7 @@ log.getLogger().setLevel(log.INFO)
 
 clientToProjectId = {}
 sessions = {}
+fileManager = FileManager(getenv("RESOURCE_MANAGEMENT_URL", "http://localhost:3200"))
 
 server = WebSocketServer('0.0.0.0', 3400, SimpleChat)
 
