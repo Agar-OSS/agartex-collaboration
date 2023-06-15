@@ -34,12 +34,12 @@ def from_raw_document(raw_document: str) -> list[CharObj]:
     ]
 
 def to_raw_document(document: list[CharObj]) -> str:
-    return [ 
+    return "".join([ 
         char['value'] 
         for char 
         in document 
         if not char['deleted']
-    ]
+    ])
 
 class FileManager:
     def __init__(self, resource_manager_url: str):
@@ -48,8 +48,8 @@ class FileManager:
 
     def upload_project(self, user_id: int, project_id: int, content: str):
         res = requests.put(
-            self.url + f'/projects/{project_id}',
-            data=content, 
+            f'{self.url}/projects/{project_id}',
+            data=content,
             headers={'X-User-Id': str(user_id)}
         )
 
@@ -205,7 +205,7 @@ class SimpleChat(WebSocket):
         if sessions[projectId].get_clients_count() == 0:
             del sessions[projectId]
 
-log.getLogger().setLevel(log.INFO)
+log.getLogger().setLevel(log.DEBUG)
 
 clientToProjectId = {}
 sessions = {}
@@ -216,4 +216,3 @@ server = WebSocketServer('0.0.0.0', 3400, SimpleChat)
 log.info('[global] The collaboration server is listening on port 3400.')
 
 server.serve_forever()
-
