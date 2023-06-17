@@ -162,7 +162,11 @@ class Session:
                     self.document[idx + 1: idx + 1] = insert
         elif 'delete' in message:
             delete = message['delete']
-            self.document = [char for char in self.document if char['id'] not in delete]
+            idx = 0 
+            for char in self.document:
+                if idx < len(delete) and char['id'] == delete[idx]:
+                    char['deleted'] = True 
+                    idx += 1
 
     def handle_message(self, sender_client, message):
         sender_clientId = self.clientToClientId[sender_client]
