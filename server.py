@@ -32,6 +32,7 @@ def from_raw_document(raw_document: str) -> list[CharObj]:
             'id': id,
             'deleted': False,
             'prevId': prevId,
+            'clock': 0,
             'value': char
         })
         prevId = id
@@ -90,6 +91,7 @@ class Session:
         global fileManager
         log.info(f'[{project_id}] Initializing new session.')
 
+        self.lamportClock = 0
         self.projectId = project_id
         self.clientToClientId: dict[SimpleChat, str] = {}
         self.cursorsPositions = {}
@@ -123,6 +125,7 @@ class Session:
                 send_obj_message(client, newClient_message)
 
         hello_message = {}
+        hello_message['initClock'] = self.lamportClock
         hello_message['document'] = self.document
         hello_message['clientId'] = new_clientId
         hello_message['clientsConnectedIds'] = list(self.clientToClientId.values())
@@ -154,12 +157,16 @@ class Session:
         if 'insert' in message:
             insert = message['insert']
             if len(insert) > 0:
-                position = insert[0]['prevId']
-                if position == None:
-                    self.document[0:0] = insert
-                else:
-                    idx, = (i for i, val in enumerate(self.document) if val['id'] == position)
-                    self.document[idx + 1: idx + 1] = insert
+                self.lamportClock = max(self.lamportClock, max(int(char['clock']) for char in insert))
+                prevId = insert[0]['prevId']
+                clock = insert[0]['clock']
+                idx = 0
+                if prevId != None:
+                    idx = next(i for i, char in enumerate(self.document) if char['id'] == prevId) + 1
+                idx = next((i for i, char in enumerate(self.document)
+                    if i >= idx and (char['prevId'] != prevId or char['clock'] <= clock)),
+                    len(self.document))
+                self.document[idx:idx] = insert
         elif 'delete' in message:
             delete = message['delete']
             idx = 0 
