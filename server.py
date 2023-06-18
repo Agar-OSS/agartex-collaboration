@@ -14,6 +14,9 @@ def generate_client_id():
 def generate_char_id(client_id: str):
     return f'{client_id}.{random.randint(0, 2**32-1)}'
 
+def get_client_id(char_id: str):
+    return int(char_id.split('.')[0])
+
 def send_obj_message(client, message):
     client.send_message(json.dumps(message, separators=(',', ':')))    
 
@@ -107,7 +110,6 @@ class Session:
         log.info(f'[{self.projectId}] Clossing session.')
         fileManager.upload_project(self.userId, self.projectId, to_raw_document(self.document))
         log.info(f'[{self.projectId}] Session closed.')
-        
     
     def get_clients_count(self):
         return len(self.clientToClientId)
@@ -158,14 +160,17 @@ class Session:
             insert = message['insert']
             if len(insert) > 0:
                 self.lamportClock = max(self.lamportClock, max(int(char['clock']) for char in insert))
+                charId = insert[0]['id']
                 prevId = insert[0]['prevId']
                 clock = insert[0]['clock']
                 idx = 0
                 if prevId != None:
                     idx = next(i for i, char in enumerate(self.document) if char['id'] == prevId) + 1
                 idx = next((i for i, char in enumerate(self.document)
-                    if i >= idx and (char['prevId'] != prevId or char['clock'] <= clock)),
-                    len(self.document))
+                    if i >= idx and 
+                    (char['prevId'] != prevId or char['clock'] < clock or 
+                    (char['clock'] == clock and get_client_id(char['id']) > get_client_id(charId))))
+                    , len(self.document))
                 self.document[idx:idx] = insert
         elif 'delete' in message:
             delete = message['delete']
