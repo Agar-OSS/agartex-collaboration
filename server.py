@@ -155,22 +155,39 @@ class Session:
         
         log.info(f'[{self.projectId}] {clientId} disconnected.')
     
+    def get_index_for_insertion(self, charId: str, prevId: str, clock: str):
+        prevIdPosition = next((i for i, char in enumerate(self.document) if char['id'] == prevId), -1)
+        idx = prevIdPosition + 1
+        lastWinnerIdx = -1
+
+        while idx < len(self.document):
+            c = self.document[idx]
+            if c['prevId'] == prevId and (-c['clock'], get_client_id(c['id'])) < (-clock, get_client_id(charId)):
+                lastWinnerIdx = idx
+            idx += 1
+
+        if lastWinnerIdx == -1:
+            return prevIdPosition + 1
+
+        idsBeforeLastWinner = [c['id'] for c in self.document[:lastWinnerIdx]]
+        insertIndex = next((i for i, c in enumerate(self.document[lastWinnerIdx+1:]) if c['prevId'] in idsBeforeLastWinner), -1)
+        
+        if insertIndex == -1:
+            return len(self.document)
+        return insertIndex + lastWinnerIdx + 1
+
     def handle_document_delta(self, message):
         if 'insert' in message:
             insert = message['insert']
             if len(insert) > 0:
                 self.lamportClock = max(self.lamportClock, max(int(char['clock']) for char in insert))
+
                 charId = insert[0]['id']
                 prevId = insert[0]['prevId']
                 clock = insert[0]['clock']
-                idx = 0
-                if prevId != None:
-                    idx = next(i for i, char in enumerate(self.document) if char['id'] == prevId) + 1
-                idx = next((i for i, char in enumerate(self.document)
-                    if i >= idx and 
-                    (char['prevId'] != prevId or char['clock'] < clock or 
-                    (char['clock'] == clock and get_client_id(char['id']) > get_client_id(charId))))
-                    , len(self.document))
+
+                idx = self.get_index_for_insertion(charId, prevId, clock)
+
                 self.document[idx:idx] = insert
         elif 'delete' in message:
             delete = message['delete']
