@@ -58,7 +58,7 @@ class FileManager:
     def upload_project(self, user_id: int, project_id: int, content: str):
         res = requests.put(
             f'{self.url}/projects/{project_id}',
-            data=content,
+            data=content.encode(),
             headers={'X-User-Id': str(user_id)}
         )
 
